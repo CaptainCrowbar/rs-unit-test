@@ -8,20 +8,25 @@ _[GitHub repository](https://github.com/CaptainCrowbar/rs-unit-test)_
 
 The library itself consists of just one header file, `rs-unit-test.hpp`. The
 supplied CMake file defines only one target, `install`, which copies that
-header into your local include directory.
+header into your local `include` directory, and the two associated scripts
+into your local `bin` directory.
 
 Running the unit tests requires a user-created test wrapper in your project;
 this is called `unit-test.cpp` by default, but can be named anything. A shell
-script (`scripts/update-tests`) is supplied that can be used to automatically
+script (`rs-update-tests`) is supplied that can be used to automatically
 generate `unit-test.cpp` (if you follow some test naming conventions), but
 this is not necessary. Writing `unit-test.cpp` by hand is simple, and an
 example is supplied that explains what is needed.
 
-The `update-tests` script searches your CMake file for any source files named
-`*-test.cpp`, then searches inside those files for functions with the form
-`void test_*()`. All of those functions are assumed to be required test
+The `rs-update-tests` script searches your CMake file for any source files
+named `*-test.cpp`, then searches inside those files for functions with the
+form `void test_*()`. All of those functions are assumed to be required test
 functions, and will be run in the order in which the test files appear in
 your CMake file.
+
+The other script, `rs-bump-version`, finds the local `CMakeLists.txt` (of the
+project you run it from), increments the patch number in the version string,
+and regenerates the local `version.hpp`.
 
 ## Utility definitions
 
