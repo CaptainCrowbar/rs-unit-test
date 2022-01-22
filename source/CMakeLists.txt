@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # The version number here is the canonical one for the project.
@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.15)
 # and propagate the new version to version.hpp.
 
 project(rs-unit-test
-    VERSION 1.0.0
+    VERSION 1.0.1
     LANGUAGES CXX
 )
 
