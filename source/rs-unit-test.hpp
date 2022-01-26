@@ -30,34 +30,36 @@
 
 namespace RS::UnitTest {
 
-    // Utility functions
+    namespace Detail {
 
-    constexpr int max_failures = 100;
+        constexpr int max_failures = 100;
 
-    inline bool isatty_function(int fd) noexcept {
-        #ifdef _WIN32
-            return _isatty(fd) != 0;
-        #else
-            return isatty(fd) != 0;
-        #endif
+        inline bool isatty_function(int fd) noexcept {
+            #ifdef _WIN32
+                return _isatty(fd) != 0;
+            #else
+                return isatty(fd) != 0;
+            #endif
+        }
+
+        inline std::string text_colour(int r, int g, int b) {
+            if (isatty_function(1))
+                return "\x1b[38;5;" + std::to_string(36 * r + 6 * g + b + 16) + "m";
+            else
+                return {};
+        }
+
+        const std::string reset_style = isatty_function(1) ? "\x1b[0m" : "";
+        const std::string info_style = text_colour(5,5,3);
+        const std::string pass_style = text_colour(2,5,2);
+        const std::string fail_style = text_colour(5,3,0);
+        const std::string delimiter_line = info_style + std::string(30, '=') + reset_style;
+
+        inline std::atomic<int> failure_count(0);
+        inline std::chrono::system_clock::time_point start_time;
+        inline std::regex test_pattern(".*");
+
     }
-
-    inline std::string text_colour(int r, int g, int b) {
-        if (isatty_function(1))
-            return "\x1b[38;5;" + std::to_string(36 * r + 6 * g + b + 16) + "m";
-        else
-            return {};
-    }
-
-    const std::string reset_style = isatty_function(1) ? "\x1b[0m" : "";
-    const std::string info_style = text_colour(5,5,3);
-    const std::string pass_style = text_colour(2,5,2);
-    const std::string fail_style = text_colour(5,3,0);
-    const std::string delimiter_line = info_style + std::string(30, '=') + reset_style;
-
-    inline std::atomic<int> failure_count(0);
-    inline std::chrono::system_clock::time_point start_time;
-    inline std::regex test_pattern(".*");
 
     // Utility functions
 
@@ -158,25 +160,25 @@ namespace RS::UnitTest {
             for (int i = 1; i < argc; ++i)
                 pattern_str += "(" + std::string(argv[i]) + ")|";
             pattern_str.pop_back();
-            test_pattern = std::regex(pattern_str, std::regex::icase | std::regex::nosubs);
+            Detail::test_pattern = std::regex(pattern_str, std::regex::icase | std::regex::nosubs);
         }
         std::cout << "\n"
-            << info_style << "Running unit tests" << reset_style << "\n"
-            << delimiter_line << std::endl;
-        start_time = system_clock::now();
+            << Detail::info_style << "Running unit tests" << Detail::reset_style << "\n"
+            << Detail::delimiter_line << std::endl;
+        Detail::start_time = system_clock::now();
     }
 
     inline int end_tests() {
         using namespace std::chrono;
-        auto time = system_clock::now() - start_time;
-        std::cout << delimiter_line << "\n";
+        auto time = system_clock::now() - Detail::start_time;
+        std::cout << Detail::delimiter_line << "\n";
         double seconds = 1e-9 * duration_cast<nanoseconds>(time).count();
-        if (failure_count == 0)
-            std::cout << pass_style << "OK: all tests passed" << reset_style << "\n";
+        if (Detail::failure_count == 0)
+            std::cout << Detail::pass_style << "OK: all tests passed" << Detail::reset_style << "\n";
         else
-            std::cout << fail_style << "*** Tests failed: " << failure_count << reset_style << "\n";
-        std::cout << info_style << "Time: " << seconds << " s" << reset_style << "\n\n";
-        return int(failure_count > 0);
+            std::cout << Detail::fail_style << "*** Tests failed: " << Detail::failure_count << Detail::reset_style << "\n";
+        std::cout << Detail::info_style << "Time: " << seconds << " s" << Detail::reset_style << "\n\n";
+        return int(Detail::failure_count > 0);
     }
 
 }
@@ -195,26 +197,26 @@ namespace std {
 // Call this from main() for each test
 
 #define UNIT_TEST(name) \
-    if (std::regex_search(# name, RS::UnitTest::test_pattern)) { \
+    if (std::regex_search(# name, RS::UnitTest::Detail::test_pattern)) { \
         extern void test_##name(); \
         try { \
             std::string title(#name); \
             std::replace(title.begin(), title.end(), '_', ' '); \
-            std::cout << RS::UnitTest::info_style << "Test " << title << RS::UnitTest::reset_style << std::endl; \
+            std::cout << RS::UnitTest::Detail::info_style << "Test " << title << RS::UnitTest::Detail::reset_style << std::endl; \
             test_##name(); \
         } \
         catch (const std::exception& ex) { \
-            std::cout << RS::UnitTest::fail_style << "*** " << ex.what() << std::endl; \
+            std::cout << RS::UnitTest::Detail::fail_style << "*** " << ex.what() << std::endl; \
         } \
     }
 
 // Fail a test (normally only used internally)
 
 #define FAIL_TEST(message) { \
-    std::cout << RS::UnitTest::fail_style \
+    std::cout << RS::UnitTest::Detail::fail_style \
         << "*** [" << __FILE__ << ":" << __LINE__ << "] " \
-        << message << RS::UnitTest::reset_style << std::endl; \
-    if (++RS::UnitTest::failure_count >= RS::UnitTest::max_failures) \
+        << message << RS::UnitTest::Detail::reset_style << std::endl; \
+    if (++RS::UnitTest::Detail::failure_count >= RS::UnitTest::Detail::max_failures) \
         return; \
 }
 
@@ -267,12 +269,12 @@ namespace std {
 
 #define TEST_EQUAL(lhs, rhs) \
     try { \
-        auto rs_unit_test_lhs = (lhs); \
-        auto rs_unit_test_rhs = (rhs); \
-        if (rs_unit_test_lhs != rs_unit_test_rhs) \
+        auto lhs_value = (lhs); \
+        auto rhs_value = (rhs); \
+        if (lhs_value != rhs_value) \
             FAIL_TEST("Expressions are not equal: " \
-                << # lhs << " = " << rs_unit_test_lhs << ", " \
-                << # rhs << " = " << rs_unit_test_rhs); \
+                << # lhs << " = " << lhs_value << ", " \
+                << # rhs << " = " << rhs_value); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception: " << ex.what()); \
@@ -285,22 +287,22 @@ namespace std {
     try { \
         using std::begin; \
         using std::end; \
-        auto rs_unit_test_lhs_it = begin(lhs); \
-        auto rs_unit_test_lhs_end = end(lhs); \
-        auto rs_unit_test_rhs_it = begin(rhs); \
-        auto rs_unit_test_rhs_end = end(rhs); \
-        auto rs_unit_test_lhs_size = std::distance(rs_unit_test_lhs_it, rs_unit_test_lhs_end); \
-        auto rs_unit_test_rhs_size = std::distance(rs_unit_test_rhs_it, rs_unit_test_rhs_end); \
-        if (rs_unit_test_lhs_size != rs_unit_test_rhs_size) \
+        auto lhs_it = begin(lhs); \
+        auto lhs_end = end(lhs); \
+        auto rhs_it = begin(rhs); \
+        auto rhs_end = end(rhs); \
+        auto lhs_size = std::distance(lhs_it, lhs_end); \
+        auto rhs_size = std::distance(rhs_it, rhs_end); \
+        if (lhs_size != rhs_size) \
             FAIL_TEST("Ranges have different lengths: " \
-                << # lhs << " [" << rs_unit_test_lhs_size << "], " \
-                << # rhs << " [" << rs_unit_test_rhs_size << "]"); \
-        int rs_unit_test_index = 0; \
-        for (; rs_unit_test_lhs_it != rs_unit_test_lhs_end; ++rs_unit_test_lhs_it, ++rs_unit_test_rhs_it, ++rs_unit_test_index) \
-            if (*rs_unit_test_lhs_it != *rs_unit_test_rhs_it) \
+                << # lhs << " [" << lhs_size << "], " \
+                << # rhs << " [" << rhs_size << "]"); \
+        int index_value = 0; \
+        for (; lhs_it != lhs_end; ++lhs_it, ++rhs_it, ++index_value) \
+            if (*lhs_it != *rhs_it) \
                 FAIL_TEST("Ranges are not equal: " \
-                    << # lhs << " [" << rs_unit_test_index << "] = " << *rs_unit_test_lhs_it << ", " \
-                    << # rhs << " [" << rs_unit_test_index << "] = " << *rs_unit_test_rhs_it); \
+                    << # lhs << " [" << index_value << "] = " << *lhs_it << ", " \
+                    << # rhs << " [" << index_value << "] = " << *rhs_it); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception: " << ex.what()); \
@@ -313,14 +315,14 @@ namespace std {
 
 #define TEST_IN_RANGE(expr, min, max) \
     try { \
-        auto rs_unit_test_expr = (expr); \
-        auto rs_unit_test_min = (min); \
-        auto rs_unit_test_max = (max); \
-        if (rs_unit_test_expr < rs_unit_test_min || rs_unit_test_expr > rs_unit_test_max) \
+        auto expr_value = (expr); \
+        auto min_value = (min); \
+        auto max_value = (max); \
+        if (expr_value < min_value || expr_value > max_value) \
             FAIL_TEST("Expression is out of range: " \
-                << # expr << " = " << rs_unit_test_expr << " vs " \
-                << # min << " = " << rs_unit_test_min << "," \
-                << # max << " = " << rs_unit_test_max); \
+                << # expr << " = " << expr_value << " vs " \
+                << # min << " = " << min_value << "," \
+                << # max << " = " << max_value); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception: " << ex.what()); \
@@ -333,14 +335,14 @@ namespace std {
 
 #define TEST_NEAR(lhs, rhs, epsilon) \
     try { \
-        auto rs_unit_test_lhs = static_cast<long double>(lhs); \
-        auto rs_unit_test_rhs = static_cast<long double>(rhs); \
-        auto rs_unit_test_epsilon = static_cast<long double>(epsilon); \
-        if (std::abs(rs_unit_test_rhs - rs_unit_test_lhs) > rs_unit_test_epsilon) \
+        auto lhs_value = static_cast<long double>(lhs); \
+        auto rhs_value = static_cast<long double>(rhs); \
+        auto epsilon_value = static_cast<long double>(epsilon); \
+        if (std::abs(rhs_value - lhs_value) > epsilon_value) \
             FAIL_TEST("Expressions are not close enough: " \
-                << # lhs << " = " << rs_unit_test_lhs << ", " \
-                << # rhs << " = " << rs_unit_test_rhs << ", " \
-                << "epsilon = " << rs_unit_test_epsilon); \
+                << # lhs << " = " << lhs_value << ", " \
+                << # rhs << " = " << rhs_value << ", " \
+                << "epsilon = " << epsilon_value); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception: " << ex.what()); \
@@ -353,11 +355,11 @@ namespace std {
 
 #define TEST_MATCH(expr, pattern) \
     try { \
-        auto rs_unit_test_expr = (expr); \
-        std::regex rs_unit_test_pattern(pattern); \
-        if (! std::regex_search(rs_unit_test_expr, rs_unit_test_pattern)) \
+        auto expr_value = (expr); \
+        std::regex pattern_regex(pattern); \
+        if (! std::regex_search(expr_value, pattern_regex)) \
             FAIL_TEST("Expression does not match regex: " \
-                << # expr << " = " << rs_unit_test_expr \
+                << # expr << " = " << expr_value \
                 << ", pattern = " << # pattern); \
     } \
     catch (const std::exception& ex) { \
@@ -369,11 +371,11 @@ namespace std {
 
 #define TEST_MATCH_ICASE(expr, pattern) \
     try { \
-        auto rs_unit_test_expr = (expr); \
-        std::regex rs_unit_test_pattern(pattern, std::regex::icase); \
-        if (! std::regex_search(rs_unit_test_expr, rs_unit_test_pattern)) \
+        auto expr_value = (expr); \
+        std::regex pattern_regex(pattern, std::regex::icase); \
+        if (! std::regex_search(expr_value, pattern_regex)) \
             FAIL_TEST("Expression does not match regex: " \
-                << # expr << " = " << rs_unit_test_expr \
+                << # expr << " = " << expr_value \
                 << ", pattern = " << # pattern); \
     } \
     catch (const std::exception& ex) { \
@@ -406,12 +408,12 @@ namespace std {
         FAIL_TEST("Expression failed to throw: " << # expr); \
     } \
     catch (const extype& ex) { \
-        std::string rs_unit_test_what(ex.what()); \
-        std::string rs_unit_test_message(message); \
-        if (rs_unit_test_what != rs_unit_test_message) \
+        std::string ex_what(ex.what()); \
+        std::string message_str(message); \
+        if (ex_what != message_str) \
             FAIL_TEST("Exception message does not match: " \
-                << "what = " << rs_unit_test_what \
-                << ", expected = " << rs_unit_test_message); \
+                << "what = " << ex_what \
+                << ", expected = " << message_str); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception from " << # expr << ": " << ex.what()); \
@@ -426,11 +428,11 @@ namespace std {
         FAIL_TEST("Expression failed to throw: " << # expr); \
     } \
     catch (const extype& ex) { \
-        std::string rs_unit_test_what(ex.what()); \
-        std::regex rs_unit_test_pattern(pattern, std::regex::icase); \
-        if (! std::regex_search(rs_unit_test_what, rs_unit_test_pattern)) \
+        std::string ex_what(ex.what()); \
+        std::regex pattern_regex(pattern, std::regex::icase); \
+        if (! std::regex_search(ex_what, pattern_regex)) \
             FAIL_TEST("Exception message does not match regex: " \
-                << "what = " << rs_unit_test_what \
+                << "what = " << ex_what \
                 << ", pattern = " << # pattern); \
     } \
     catch (const std::exception& ex) { \
