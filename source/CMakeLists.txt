@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.16)
 # and propagate the new version to version.hpp.
 
 project(rs-unit-test
-    VERSION 1.0.1
+    VERSION 1.0.2
     LANGUAGES CXX
 )
 

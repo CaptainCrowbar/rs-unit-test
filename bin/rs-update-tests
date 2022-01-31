@@ -27,7 +27,6 @@ if ! [ "$main" ]; then
 
 fi
 
-testdir="${main%/*}"
 temp="${main%.cpp}.temp.cpp"
 cmake=$(find . -name CMakeLists.txt)
 
@@ -52,9 +51,9 @@ int main(int argc, char** argv) {
 EOF
 
 for file in $testfiles; do
-    if [ -f $file ]; then
+    if [ -f "$file" ]; then
         echo "    // ${file##*/}" >> $temp
-        grep -Eh '^void test_' $file \
+        grep -Eh '^void test_' "$file" \
             | sed -E 's/^void test_([a-z0-9_]+)\(\).*$/\1/' \
             | grep -Ev '^void ' \
             | sed -E 's/.+/    UNIT_TEST(&)/' \
