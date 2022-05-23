@@ -433,7 +433,7 @@ namespace std {
         if (! std::regex_search(ex_what, pattern_regex)) \
             FAIL_TEST("Exception message does not match regex: " \
                 << "what = " << ex_what \
-                << ", pattern = " << # pattern); \
+                << ", pattern = " << std::string(pattern)); \
     } \
     catch (const std::exception& ex) { \
         FAIL_TEST("Unexpected exception from " << # expr << ": " << ex.what()); \
